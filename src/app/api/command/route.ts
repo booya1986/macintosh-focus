@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { mutate } from "@/lib/store";
 import { ENCOURAGEMENTS, cryptoRandomId } from "@/lib/state";
+import { ccEnabled, markControlCenterDone } from "@/lib/control-center";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +26,22 @@ interface CmdBody {
 
 export async function POST(req: Request) {
   const body = (await req.json()) as CmdBody;
+
+  // If the Control Center owns the task list, route mutations there and
+  // leave our local KV alone for those.
+  if (ccEnabled()) {
+    if (body.command === "done" && (body.id || true)) {
+      // if no explicit id, mark the CURRENT (top) task done
+      const { getState } = await import("@/lib/store");
+      const cur = await getState();
+      const target = body.id ?? cur.tasks[0]?.id;
+      if (target) await markControlCenterDone(target);
+    }
+    // addTask / removeTask / reorderTask / skip are not yet proxied to CC -
+    // those happen in Control Center's own UI. All other state commands
+    // (start / stop / setFocusTotal) still flow through our store below.
+  }
+
   const next = await mutate((s) => {
     switch (body.command) {
       case "start":
