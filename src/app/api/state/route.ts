@@ -1,19 +1,12 @@
 import { NextResponse } from "next/server";
 import { getState, setState } from "@/lib/store";
 import { AppState } from "@/lib/state";
-import { ccEnabled, fetchControlCenterTasks } from "@/lib/control-center";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const s = await getState();
-  // If the Control Center is configured, its task queue is the source of
-  // truth — merge it into the state we return.
-  if (ccEnabled()) {
-    const cc = await fetchControlCenterTasks();
-    if (cc) s.tasks = cc;
-  }
   return NextResponse.json(s, {
     headers: { "Cache-Control": "no-store" },
   });
