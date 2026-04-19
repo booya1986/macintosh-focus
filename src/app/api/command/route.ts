@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { mutate } from "@/lib/store";
+import { mutate, getState } from "@/lib/store";
 import { ENCOURAGEMENTS, cryptoRandomId } from "@/lib/state";
+import { ccEnabled, markControlCenterDone } from "@/lib/control-center";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +26,13 @@ interface CmdBody {
 
 export async function POST(req: Request) {
   const body = (await req.json()) as CmdBody;
+
+  // When CC is wired up, mark-done propagates to it.
+  if (ccEnabled() && body.command === "done") {
+    const cur = await getState();
+    const target = body.id ?? cur.tasks[0]?.id;
+    if (target) await markControlCenterDone(target);
+  }
 
   const next = await mutate((s) => {
     switch (body.command) {
